@@ -116,29 +116,29 @@ ax = plt.subplot(projection=stereo_map.wcs)
 im = maps[0].plot()
 removes = []
 
-## routine for defining the coords
-#def run(i):
-#    global removes
-#    while removes:
-#        removes.pop(0).remove()
-#    # update the data
-#    amap = maps[i]
-#    stereo_coords[i]
-#    eis_boxes[i]
-#    eis_times[i]
-#    im.set_array(amap.data)
-#    # make the rectangle
-#    w = (eis_boxes[i][1].Tx - eis_boxes[i][0].Tx).to(u.deg).value
-#    h = (eis_boxes[i][1].Ty - eis_boxes[i][0].Ty).to(u.deg).value
-#    rect = plt.Rectangle((eis_boxes[i][0].Tx.to(u.deg).value, eis_boxes[i][0].Ty.to(u.deg).value), 
-#                         w, h, color='white', fill=False, transform=ax.get_transform('world'))
-#    ax.add_artist(rect)
-#    ax.set_title('Stereo EUVI 30.4 nm %s' % eis_times[i])
-#    removes.append(rect)
-#
-##len(eis_boxes)
-#ani = an.FuncAnimation(fig, run, np.arange(len(eis_times)), interval = 100)
-#plt.show()
+# routine for defining the coords
+def run(i):
+    global removes
+    while removes:
+        removes.pop(0).remove()
+    # update the data
+    amap = maps[i]
+    stereo_coords[i]
+    eis_boxes[i]
+    eis_times[i]
+    im.set_array(amap.data)
+    # make the rectangle
+    w = (eis_boxes[i][1].Tx - eis_boxes[i][0].Tx).to(u.deg).value
+    h = (eis_boxes[i][1].Ty - eis_boxes[i][0].Ty).to(u.deg).value
+    rect = plt.Rectangle((eis_boxes[i][0].Tx.to(u.deg).value, eis_boxes[i][0].Ty.to(u.deg).value), 
+                         w, h, color='white', fill=False, transform=ax.get_transform('world'))
+    ax.add_artist(rect)
+    ax.set_title('STEREO EUVI 30.4 nm {}'.format(eis_times[i]))
+    removes.append(rect)
+
+print(len(eis_boxes))
+ani = an.FuncAnimation(fig, run, np.arange(len(eis_times)), interval = 100)
+plt.show()
 
 
 
