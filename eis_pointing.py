@@ -77,7 +77,7 @@ for i, atime in enumerate(time):
         b_coord = SkyCoord(coords, frame = 'helioprojective', B0=B0, dateobs = atime)
 
         # EIS coords transform
-        bhgs = b_coord.transform_to('heliographicstonyhurst')
+        bhgs = b_coord.transform_to('heliographic_stonyhurst')
         bhgs.B0 = stereo_map.heliographic_latitude
         bhgs.L0 = stereo_map.heliographic_longitude
         bhgs.D0 = stereo_map.dsun
