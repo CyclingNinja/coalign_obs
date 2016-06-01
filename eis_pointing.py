@@ -47,13 +47,13 @@ nn = 0
 for i, atime in enumerate(time):
     B0 = _calc_P_B0_SD(atime)['b0']
 
-    
+
     # center of EIS field of view
     cen = SkyCoord(eis_pdata['XCEN'].quantity[i], eis_pdata['YCEN'].quantity[i],
                frame='helioprojective', dateobs=atime, B0=B0)
-               
+
     ## transforms cen into hgs
-    hgs = cen.transform_to('heliographicstonyhurst')
+    hgs = cen.transform_to('heliographic_stonyhurst')
 
     print "Longitude is %r" % hgs.lon.value
     if hgs.lon > 10*u.deg or  hgs.lon < -30*u.deg:
@@ -64,18 +64,18 @@ for i, atime in enumerate(time):
         res = db.query(vso.attrs.Time(atime, atime+tenmins))
         if not res:
             continue
-        
+
         stereo_map = sunpy.map.Map(res[0])
         # get coords for the field of view box form EIS
         x_box = [eis_pdata['XCEN'].quantity[0] - eis_pdata['FOVX'].quantity[0]/2.0,
                  eis_pdata['XCEN'].quantity[0] + eis_pdata['FOVX'].quantity[0]/2.0]
         y_box = [eis_pdata['YCEN'].quantity[0] - eis_pdata['FOVY'].quantity[0]/2.0,
                  eis_pdata['YCEN'].quantity[0] + eis_pdata['FOVY'].quantity[0]/2.0]
-    
+
         coords = zip(x_box, y_box)
-    
+
         b_coord = SkyCoord(coords, frame = 'helioprojective', B0=B0, dateobs = atime)
-    
+
         # EIS coords transform
         bhgs = b_coord.transform_to('heliographicstonyhurst')
         bhgs.B0 = stereo_map.heliographic_latitude
