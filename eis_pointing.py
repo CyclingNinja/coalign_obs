@@ -20,7 +20,7 @@ from sunpy.net import vso
 from datetime import timedelta
 tenmins = timedelta(minutes=10)
 
-#set up the database
+#set up the database of stereo files
 db = Database('sqlite:///sunpydb.sqlite', default_waveunit=u.AA)
 
 # read in the stereo files
@@ -55,11 +55,8 @@ for i, atime in enumerate(time):
     ## transforms cen into hgs
     hgs = cen.transform_to('heliographic_stonyhurst')
 
-    print "Longitude is %r" % hgs.lon.value
     if hgs.lon > 10*u.deg or  hgs.lon < -30*u.deg:
-        print "not in field of view"
         #'raise ValueError("Out of Chesse error, get a better satellite")
-
     else:
         res = db.query(vso.attrs.Time(atime, atime+tenmins))
         if not res:
@@ -118,6 +115,7 @@ removes = []
 
 # routine for defining the coords
 def run(i):
+    print i
     global removes
     while removes:
         removes.pop(0).remove()
@@ -130,8 +128,11 @@ def run(i):
     # make the rectangle
     w = (eis_boxes[i][1].Tx - eis_boxes[i][0].Tx).to(u.deg).value
     h = (eis_boxes[i][1].Ty - eis_boxes[i][0].Ty).to(u.deg).value
-    rect = plt.Rectangle((eis_boxes[i][0].Tx.to(u.deg).value, eis_boxes[i][0].Ty.to(u.deg).value), 
-                         w, h, color='white', fill=False, transform=ax.get_transform('world'))
+    amap.draw_rectangle((eis_boxes[i][0].Tx.to(u.deg).value, eis_boxes[i][0].ty.to(u.deg).value,
+                         w, h, transform=ax.get_transform
+        
+#    rect = plt.Rectangle((eis_boxes[i][0].Tx.to(u.deg).value, eis_boxes[i][0].Ty.to(u.deg).value), 
+#                         w, h, color='white', fill=False, transform=ax.get_transform('world'))
     ax.add_artist(rect)
     ax.set_title('STEREO EUVI 30.4 nm {}'.format(eis_times[i]))
     removes.append(rect)
@@ -142,20 +143,20 @@ plt.show()
 
 
 
-## plotting routines
-## plot the stereo images
-#fig = plt.figure()
-#ax = plt.subplot(projection=stereo_map.wcs)
-#im = stereo_map.plot()
-#plt.plot(stereo_hpc.Tx.to(u.deg), stereo_hpc.Ty.to(u.deg), 'o',
+# #plotting routines
+# #plot the stereo images
+# fig = plt.figure()
+# ax = plt.subplot(projection=stereo_map.wcs)
+# im = stereo_map.plot()
+# plt.plot(stereo_hpc.Tx.to(u.deg), stereo_hpc.Ty.to(u.deg), 'o',
 #         transform=ax.get_transform('world'))
-## put the box on the images
-#w = (EIS_hpc[1].Tx - EIS_hpc[0].Tx).to(u.deg).value
-#h = (EIS_hpc[1].Ty - EIS_hpc[0].Ty).to(u.deg).value
-#rect = plt.Rectangle((EIS_hpc[0].Tx.to(u.deg).value, EIS_hpc[0].Ty.to(u.deg).value), #
+# put the box on the images
+# w = (EIS_hpc[1].Tx - EIS_hpc[0].Tx).to(u.deg).value
+# h = (EIS_hpc[1].Ty - EIS_hpc[0].Ty).to(u.deg).value
+# rect = plt.Rectangle((EIS_hpc[0].Tx.to(u.deg).value, EIS_hpc[0].Ty.to(u.deg).value), #
 #        w, h, color='white', fill=False, transform=ax.get_transform('world'))
-#ax.add_artist(rect)
-#plt.show()
+# ax.add_artist(rect)
+# plt.show()
 
 
 
