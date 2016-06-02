@@ -56,6 +56,7 @@ for i, atime in enumerate(time):
     hgs = cen.transform_to('heliographic_stonyhurst')
 
     if hgs.lon > 10*u.deg or  hgs.lon < -30*u.deg:
+        pass
         #'raise ValueError("Out of Chesse error, get a better satellite")
     else:
         res = db.query(vso.attrs.Time(atime, atime+tenmins))
@@ -82,9 +83,9 @@ for i, atime in enumerate(time):
 
 
         # stereo coords transform
-        print nn
+#        print nn
         nn += 1
-        print atime
+#        print atime
         hgs.B0 = stereo_map.heliographic_latitude
         hgs.L0 = stereo_map.heliographic_longitude
         hgs.D0 = stereo_map.dsun
@@ -110,12 +111,11 @@ f.close()
 fig = plt.figure()
 ax = plt.subplot(projection=stereo_map.wcs)
 
-im = maps[0].plot()
+im = maps[0].plot(axes=ax)
 removes = []
 
 # routine for defining the coords
 def run(i):
-    print i
     global removes
     while removes:
         removes.pop(0).remove()
@@ -126,14 +126,16 @@ def run(i):
     eis_times[i]
     im.set_array(amap.data)
     # make the rectangle
-    w = (eis_boxes[i][1].Tx - eis_boxes[i][0].Tx).to(u.deg).value
-    h = (eis_boxes[i][1].Ty - eis_boxes[i][0].Ty).to(u.deg).value
-    amap.draw_rectangle((eis_boxes[i][0].Tx.to(u.deg).value, eis_boxes[i][0].ty.to(u.deg).value,
-                         w, h, transform=ax.get_transform
+    w = (eis_boxes[i][1].Tx - eis_boxes[i][0].Tx)
+    print type(w)
+    h = (eis_boxes[i][1].Ty - eis_boxes[i][0].Ty)
+    print h
+    amap.draw_rectangle(u.Quantity(eis_boxes[i][0].Tx, eis_boxes[i][0].Ty),
+                         w, h, transform=ax.get_transform('world'))
         
 #    rect = plt.Rectangle((eis_boxes[i][0].Tx.to(u.deg).value, eis_boxes[i][0].Ty.to(u.deg).value), 
 #                         w, h, color='white', fill=False, transform=ax.get_transform('world'))
-    ax.add_artist(rect)
+#    ax.add_artist(rect)
     ax.set_title('STEREO EUVI 30.4 nm {}'.format(eis_times[i]))
     removes.append(rect)
 
