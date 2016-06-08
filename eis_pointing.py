@@ -145,7 +145,8 @@ def run(i):
     removes.append(text)
     
 
-ani = an.FuncAnimation(fig, run, np.arange(len(eis_times)), interval = 100)
+ani = an.FuncAnimation(fig, run, np.arange(len(eis_times)), interval=50)
+ani.save('eis_trans.mp4')
 plt.show()
 
 fig = plt.figure()
