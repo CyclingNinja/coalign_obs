@@ -3,6 +3,7 @@ import numpy as np
 from astropy.io import ascii
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
+from astropy.utils.console import ProgressBar
 import astropy.units as u
 
 import sunpy.map
@@ -35,44 +36,45 @@ eis_pdata['FOVX'].unit = u.arcsec
 eis_pdata['FOVY'].unit = u.arcsec
 eis_pdata.sort('DATE_OBS')
 
-time = [sunpy.time.parse_time(tt.strip()) for tt in eis_pdata['DATE_OBS']]
-
-#things for plotting
+times = [sunpy.time.parse_time(tt.strip()) for tt in eis_pdata['DATE_OBS']]
 
 
-
-
-
-def create_mapcube(db, eis_pdata, time, td):
-    maps = []
+def stereo_view_calculation(db, eis_pdata, time, td):
+    #maps = []
     eis_times = []
     stereo_coords = []
     stereo_boxes = []
     eis_coords = []
     nn = 0
-# begin a loop over the EIS pointing data
-    for i, atime in enumerate(time):
-        B0 = _calc_P_B0_SD(atime)['b0']
-         # center of EIS field of view
-        cen = SkyCoord(eis_pdata['XCEN'].quantity[i], eis_pdata['YCEN'].quantity[i],
-                       frame='helioprojective', dateobs=atime, B0=B0)
-        eis_coords.append(cen)
+    # begin a loop over the EIS pointing data
+    with ProgressBar(len(time)+1) as bar:
+        for i, atime in enumerate(time):
+            bar.update()
+            
+            B0 = _calc_P_B0_SD(atime)['b0']
+            
+            # center of EIS field of view
+            cen = SkyCoord(eis_pdata['XCEN'].quantity[i], eis_pdata['YCEN'].quantity[i],
+                           frame='helioprojective', dateobs=atime, B0=B0)
 
-         ## transforms cen into hgs
-        cen_hgs = cen.transform_to('heliographic_stonyhurst')
-        if any(np.isnan((cen_hgs.lon.value, cen_hgs.lat.value))):
-            continue
+            ## transforms cen into hgs
+            cen_hgs = cen.transform_to('heliographic_stonyhurst')
 
-        # query the stereo database
-        if cen_hgs.lon > 10*u.deg or cen_hgs.lon < -30*u.deg:
-            pass
-        #raise ValueError("Out of Chesse error, get a better satellite")
-        else:
+            # Skip this pointing the centre is off disk
+            if any(np.isnan((cen_hgs.lon.value, cen_hgs.lat.value))):
+                continue
+
+            # Limit the Longitude range we want to see
+            if cen_hgs.lon > 10*u.deg or cen_hgs.lon < -30*u.deg:
+                continue
+            
             res = db.query(vso.attrs.Time(atime, atime+td))
+
+            # If we have no stereo data skip it
             if not res:
                 continue
 
-            stereo_map = sunpy.map.Map(res)
+            stereo_map = sunpy.map.Map(res[0])
 
             # get coords for the field of view box form EIS
             x_box = [eis_pdata['XCEN'].quantity[i] - eis_pdata['FOVX'].quantity[i]/2.0,
@@ -87,73 +89,81 @@ def create_mapcube(db, eis_pdata, time, td):
             # EIS coords transform
             bhgs = b_coord.transform_to('heliographic_stonyhurst')
             stereo_box_hpc = bhgs.transform_to(stereo_map.coordinate_frame)
-            check = [stereo_box_hpc.Tx.value, stereo_box_hpc.Ty.value]
 
+            # If any of the corners of the box are off disk, skip it.
+            check = [stereo_box_hpc.Tx.value, stereo_box_hpc.Ty.value]
             if np.any(np.isnan(check)):
                 continue
 
             # stereo coords transform
             stereo_hpc = cen_hgs.transform_to(stereo_map.coordinate_frame)
-            # horrific hack
-            stereo_map.stereo_box = stereo_box_hpc
-            stereo_map.eis_coords = cen
-            stereo_map.units = stereo_map.spatial_units
-            maps.append(stereo_map)
+
+            #maps.append(stereo_map)
             stereo_coords.append(stereo_hpc)
             stereo_boxes.append(stereo_box_hpc)
             eis_times.append(atime)
+            eis_coords.append(cen)
 
-            nn += 1
+            #nn += 1
             if nn > 200:
                 break
-            return stereo_map  
-
-# # create an ascii table
-# my_table = Table([stereo_coords, stereo_boxes, eis_times],
-#                  names=['stereo_coords', 'stereo_boxes', 'eis_times'])
-
-# f = open("/storage2/EUVI/data_table.pik", 'wb')
-# pickle.dump(my_table,f)
-# f.close()
-
-
+        
+    return stereo_boxes, stereo_coords, eis_coords, eis_times
 
 # now lets try multiple stereo images per run
-db_stereo_cubes = db.query(vso.attrs.Time(atime, atime+timedelta(minutes=60)))
 
 # call to the box making problem
-z_maps  = create_mapcube(db_stereo_cubes, eis_pdata, time, stereo_ttest)
+stereo_boxes, stereo_coords, eis_coords, eis_times  = stereo_view_calculation(db, eis_pdata, times[:200], stereo_ttest)
 
 
-# actually buildt he figure
-fig3 = plt.figure()
-def stereo_zoom(fig, ax, sunpy_map):
-    fig3.add_subplot(1, 2, 2, projection=sunpy_map.wcs)
+for i, (time, box, cen) in enumerate(zip(eis_times, stereo_boxes, eis_coords)[:-1]):
 
-    box = sunpy.stereo_box
-    w = (box[1].Tx - box[0].Tx)
-    h = (box[1].Ty - box[0].Ty)
-    rect = sunpy_map.draw_rectangle(u.Quantity([box[0].Tx, box[0].Ty]),
-                               w, h, transform=ax.get_transform('world'))
-    cen = sunpy_map.eis_coords
-    text = ax.text(10, sunpy_map.data.shape[1] - 100,
-                   "EIS Pointing ({}, {})".format(cen.Tx, cen.Ty),
-                   color='white')
-    rect.append(text)
+    end_time = eis_times[i+1]
+    
+    print(i, time, end_time)
+    
+    res = db.query(vso.attrs.Time(time, end_time))
+    if not res:
+        continue
+    
+    z_maps = sunpy.map.Map(res, cube=True)
+    
+    # Hack for 0.7.0 bug in MapCube.peek
+    for m in z_maps:
+        m.units = m.spatial_units
 
 
-#actually make the plot
-z_maps.peek(plot_function=stereo_zoom)
-plt.show()
+    # actually build the figure
+    fig3 = plt.figure()
+
+    def stereo_zoom(fig, ax, sunpy_map):
+        global box, cen
+
+        w = (box[1].Tx - box[0].Tx)
+        h = (box[1].Ty - box[0].Ty)
+        rect = sunpy_map.draw_rectangle(u.Quantity([box[0].Tx, box[0].Ty]),
+                                        w, h, transform=ax.get_transform('world'))
+
+        text = ax.text(10, sunpy_map.data.shape[1] - 100,
+                       "EIS Pointing ({}, {})".format(cen.Tx, cen.Ty),
+                       color='white')
+        rect.append(text)
+        return rect
+
+
+    #actually make the plot
+    z_maps.peek(plot_function=stereo_zoom, fig=fig3)
+    plt.show()
 
 
 
 # begin the figure
-fig = plt.figure()
-ax = plt.subplot(projection=stereo_map)
+# fig = plt.figure()
+# ax = plt.subplot(projection=stereo_map, fig=fig3)
 
-im = maps[0].plot(axes=ax)
-removes = []
+# im = maps[0].plot(axes=ax)
+# remove
+s = []
 # # Routine for defining the coords
 # def run(i):
 #     global removes
