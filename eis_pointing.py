@@ -43,71 +43,70 @@ time = [sunpy.time.parse_time(tt.strip()) for tt in eis_pdata['DATE_OBS']]
 
 
 
-def create_mapcube(db, eis_pdata, time, td)
-maps = []
-eis_times = []
-stereo_coords = []
-stereo_boxes = []
-eis_coords = []
-nn = 0
+def create_mapcube(db, eis_pdata, time, td):
+    maps = []
+    eis_times = []
+    stereo_coords = []
+    stereo_boxes = []
+    eis_coords = []
+    nn = 0
 # begin a loop over the EIS pointing data
-     for i, atime in enumerate(time):
-         B0 = _calc_P_B0_SD(atime)['b0']
-
+    for i, atime in enumerate(time):
+        B0 = _calc_P_B0_SD(atime)['b0']
          # center of EIS field of view
-         cen = SkyCoord(eis_pdata['XCEN'].quantity[i], eis_pdata['YCEN'].quantity[i],
-                        frame='helioprojective', dateobs=atime, B0=B0)
-         eis_coords.append(cen)
+        cen = SkyCoord(eis_pdata['XCEN'].quantity[i], eis_pdata['YCEN'].quantity[i],
+                       frame='helioprojective', dateobs=atime, B0=B0)
+        eis_coords.append(cen)
 
          ## transforms cen into hgs
-         cen_hgs = cen.transform_to('heliographic_stonyhurst')
+        cen_hgs = cen.transform_to('heliographic_stonyhurst')
+        if any(np.isnan((cen_hgs.lon.value, cen_hgs.lat.value))):
+            continue
 
-         if any(np.isnan((cen_hgs.lon.value, cen_hgs.lat.value))):
-             continue
+        # query the stereo database
+        if cen_hgs.lon > 10*u.deg or cen_hgs.lon < -30*u.deg:
+            pass
+        #raise ValueError("Out of Chesse error, get a better satellite")
+        else:
+            res = db.query(vso.attrs.Time(atime, atime+td))
+            if not res:
+                continue
 
-         # query the stereo database
-         if cen_hgs.lon > 10*u.deg or cen_hgs.lon < -30*u.deg:
-             pass
-         #raise ValueError("Out of Chesse error, get a better satellite")
-         else:
-             res = db.query(vso.attrs.Time(atime, atime+td))
-             if not res:
-                 continue
+            stereo_map = sunpy.map.Map(res)
 
-             stereo_map = sunpy.map.Map(res)
-             # get coords for the field of view box form EIS
-             x_box = [eis_pdata['XCEN'].quantity[i] - eis_pdata['FOVX'].quantity[i]/2.0,
-                      eis_pdata['XCEN'].quantity[i] + eis_pdata['FOVX'].quantity[i]/2.0]
-             y_box = [eis_pdata['YCEN'].quantity[i] - eis_pdata['FOVY'].quantity[i]/2.0,
-                      eis_pdata['YCEN'].quantity[i] + eis_pdata['FOVY'].quantity[i]/2.0]
+            # get coords for the field of view box form EIS
+            x_box = [eis_pdata['XCEN'].quantity[i] - eis_pdata['FOVX'].quantity[i]/2.0,
+                     eis_pdata['XCEN'].quantity[i] + eis_pdata['FOVX'].quantity[i]/2.0]
+            y_box = [eis_pdata['YCEN'].quantity[i] - eis_pdata['FOVY'].quantity[i]/2.0,
+                     eis_pdata['YCEN'].quantity[i] + eis_pdata['FOVY'].quantity[i]/2.0]
 
-             coords = zip(x_box, y_box)
+            coords = zip(x_box, y_box)
 
-             b_coord = SkyCoord(coords, frame='helioprojective', B0=B0, dateobs=atime)
+            b_coord = SkyCoord(coords, frame='helioprojective', B0=B0, dateobs=atime)
 
-             # EIS coords transform
-             bhgs = b_coord.transform_to('heliographic_stonyhurst')
-             stereo_box_hpc = bhgs.transform_to(stereo_map.coordinate_frame)
+            # EIS coords transform
+            bhgs = b_coord.transform_to('heliographic_stonyhurst')
+            stereo_box_hpc = bhgs.transform_to(stereo_map.coordinate_frame)
+            check = [stereo_box_hpc.Tx.value, stereo_box_hpc.Ty.value]
 
-             check = [stereo_box_hpc.Tx.value, stereo_box_hpc.Ty.value]
-             if np.any(np.isnan(check)):
-                 continue
+            if np.any(np.isnan(check)):
+                continue
 
-             # stereo coords transform
-             stereo_hpc = cen_hgs.transform_to(stereo_map.coordinate_frame)
-             # horrific hack
-             stereo_map.stereo_box = stereo_box_hpc
-             stereo_map.eis_coords = cen
-             stereo_map.units = stereo_map.spatial_units
-             maps.append(stereo_map)
-             stereo_coords.append(stereo_hpc)
-             stereo_boxes.append(stereo_box_hpc)
-             eis_times.append(atime)
+            # stereo coords transform
+            stereo_hpc = cen_hgs.transform_to(stereo_map.coordinate_frame)
+            # horrific hack
+            stereo_map.stereo_box = stereo_box_hpc
+            stereo_map.eis_coords = cen
+            stereo_map.units = stereo_map.spatial_units
+            maps.append(stereo_map)
+            stereo_coords.append(stereo_hpc)
+            stereo_boxes.append(stereo_box_hpc)
+            eis_times.append(atime)
 
-             nn += 1
-             if nn > 200:
-                 break
-             return stereo_map  
+            nn += 1
+            if nn > 200:
+                break
+            return stereo_map  
 
 # # create an ascii table
 # my_table = Table([stereo_coords, stereo_boxes, eis_times],
