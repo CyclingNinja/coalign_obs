@@ -146,7 +146,7 @@ for i, (time, box, cen) in enumerate(zip(eis_times, stereo_boxes, eis_coords)[:-
 
         text = ax.text(10, sunpy_map.data.shape[1] - 100,
                        "EIS Pointing ({}, {})".format(cen.Tx, cen.Ty),
-                       color='white')
+                       color='white', alpha=0.5)
         rect.append(text)
         return rect
 
